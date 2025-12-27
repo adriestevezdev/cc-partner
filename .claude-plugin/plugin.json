@@ -1,0 +1,11 @@
+{
+  "name": "cc-partner",
+  "description": "Skills para construir software con IA - desde cero hasta producción. Para principiantes y devs.",
+  "version": "0.1.0",
+  "author": {
+    "name": "CC Partner"
+  },
+  "repository": "https://github.com/tu-usuario/cc-partner",
+  "license": "MIT",
+  "keywords": ["skills", "principiantes", "desarrollo", "ia", "español"]
+}
