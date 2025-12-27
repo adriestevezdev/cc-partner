@@ -7,9 +7,11 @@ description: Use when facing a complex task that needs to be broken down into sm
 
 ## Overview
 
-Divide tareas complejas en subtareas manejables. Analiza dependencias entre tareas, identifica cuales pueden ejecutarse en paralelo, y crea un plan de ejecucion claro.
+Escribe planes de implementacion completos asumiendo que el ingeniero no tiene contexto del codebase. Documenta todo lo necesario: archivos a tocar, codigo, tests, como verificar. Divide en tareas pequenas. DRY. YAGNI. TDD. Commits frecuentes.
 
-**Principio clave:** Antes de ejecutar, planificar. Una tarea bien dividida es mas facil de completar y revisar.
+**Principio clave:** Antes de ejecutar, planificar. Un plan bien escrito permite ejecutar con subagentes de forma autonoma.
+
+**Guardar planes en:** `docs/plans/YYYY-MM-DD-<nombre-feature>.md`
 
 ## Cuando usar
 
@@ -20,18 +22,21 @@ digraph when_to_use {
     "Hazla directamente" [shape=box];
     "Tiene multiples pasos?" [shape=diamond];
     "Usa /planificar" [shape=box];
-    "Los pasos dependen entre si?" [shape=diamond];
-    "Planificar secuencial" [shape=box];
-    "Planificar paralelo" [shape=box];
+    "Los pasos son independientes?" [shape=diamond];
+    "Marcar tareas paralelas" [shape=box];
+    "Marcar tareas secuenciales" [shape=box];
+    "Guardar en docs/plans/" [shape=box style=filled fillcolor=lightgreen];
 
     "Tienes una tarea?" -> "Es simple (< 30 min)?";
     "Es simple (< 30 min)?" -> "Hazla directamente" [label="Si"];
     "Es simple (< 30 min)?" -> "Tiene multiples pasos?" [label="No"];
     "Tiene multiples pasos?" -> "Usa /planificar" [label="Si"];
     "Tiene multiples pasos?" -> "Hazla directamente" [label="No"];
-    "Usa /planificar" -> "Los pasos dependen entre si?";
-    "Los pasos dependen entre si?" -> "Planificar secuencial" [label="Si"];
-    "Los pasos dependen entre si?" -> "Planificar paralelo" [label="No"];
+    "Usa /planificar" -> "Los pasos son independientes?";
+    "Los pasos son independientes?" -> "Marcar tareas paralelas" [label="Si"];
+    "Los pasos son independientes?" -> "Marcar tareas secuenciales" [label="No"];
+    "Marcar tareas paralelas" -> "Guardar en docs/plans/";
+    "Marcar tareas secuenciales" -> "Guardar en docs/plans/";
 }
 ```
 
@@ -45,6 +50,95 @@ digraph when_to_use {
 - Tarea simple y directa
 - Ya tienes claro que hacer
 - Es un fix rapido
+
+## Header Obligatorio del Plan
+
+**Cada plan DEBE empezar con este header:**
+
+```markdown
+# [Nombre Feature] - Plan de Implementacion
+
+> **Para Claude:** Usa `/ejecutar` para implementar este plan tarea por tarea.
+
+**Objetivo:** [Una frase describiendo que se construye]
+
+**Arquitectura:** [2-3 frases sobre el enfoque]
+
+**Stack:** [Tecnologias/librerias clave]
+
+---
+```
+
+## Granularidad de Tareas (Bite-Sized)
+
+**Cada paso es UNA accion (2-5 minutos):**
+
+```markdown
+### Tarea 1: [Nombre del Componente]
+
+**Archivos:**
+- Crear: `ruta/exacta/al/archivo.py`
+- Modificar: `ruta/exacta/existente.py:123-145`
+- Test: `tests/ruta/exacta/test.py`
+
+**Paso 1: Escribir el test que falla**
+
+\`\`\`python
+def test_comportamiento_especifico():
+    resultado = funcion(input)
+    assert resultado == esperado
+\`\`\`
+
+**Paso 2: Ejecutar test para verificar que falla**
+
+Ejecutar: `pytest tests/ruta/test.py::test_name -v`
+Esperado: FAIL con "funcion not defined"
+
+**Paso 3: Implementar codigo minimo**
+
+\`\`\`python
+def funcion(input):
+    return esperado
+\`\`\`
+
+**Paso 4: Ejecutar test para verificar que pasa**
+
+Ejecutar: `pytest tests/ruta/test.py::test_name -v`
+Esperado: PASS
+
+**Paso 5: Commit**
+
+\`\`\`bash
+git add tests/ruta/test.py src/ruta/archivo.py
+git commit -m "feat: add specific feature"
+\`\`\`
+```
+
+## Identificar Tareas Paralelas
+
+**Agrupar tareas que pueden ejecutarse simultaneamente:**
+
+```markdown
+## Fase 1: Fundamentos (PARALELO)
+
+Las siguientes tareas son independientes y pueden ejecutarse en paralelo:
+
+| Tarea | Descripcion | Archivos |
+|-------|-------------|----------|
+| 1.1 | Crear modelo de datos | `src/models/user.py` |
+| 1.2 | Configurar linting | `.eslintrc.js` |
+| 1.3 | Setup de tests | `pytest.ini`, `conftest.py` |
+
+## Fase 2: Backend (SECUENCIAL - depende de Fase 1)
+
+Estas tareas dependen entre si y deben ejecutarse en orden:
+
+| Tarea | Descripcion | Depende de |
+|-------|-------------|------------|
+| 2.1 | API de registro | 1.1 |
+| 2.2 | API de login | 2.1 |
+| 2.3 | Middleware auth | 2.2 |
+```
 
 ## El Proceso
 
@@ -67,143 +161,177 @@ digraph when_to_use {
 - **Pequena:** Maximo 30-60 minutos de trabajo
 - **Clara:** Objetivo especifico y medible
 - **Verificable:** Sabes cuando esta terminada
-
-**Formato de subtarea:**
-```markdown
-## Tarea: [Nombre descriptivo]
-- **Objetivo:** Que debe lograr esta tarea
-- **Archivos:** Que archivos crea o modifica
-- **Dependencias:** Que tareas deben completarse antes
-- **Verificacion:** Como saber que esta lista
-```
+- **Con codigo completo:** No decir "agregar validacion", escribir el codigo
 
 ### Fase 3: Ordenar por dependencias
 
-**Identificar dependencias:**
-```
-Tarea A: Crear modelo de datos
-Tarea B: Crear API endpoints (depende de A)
-Tarea C: Crear componente UI (depende de B)
-Tarea D: Agregar tests (depende de A, B, C)
-```
+**Identificar que puede ser paralelo:**
+- Tareas que no tocan los mismos archivos
+- Tareas sin dependencia de datos entre ellas
+- Diferentes subsistemas
 
-**Agrupar tareas paralelas:**
-```
-Grupo 1 (paralelo):
-  - Tarea A: Modelo de datos
-  - Tarea E: Configurar linting
-
-Grupo 2 (paralelo, despues de Grupo 1):
-  - Tarea B: API endpoints
-  - Tarea F: Setup de tests
-
-Grupo 3 (secuencial):
-  - Tarea C: Componente UI
-  - Tarea D: Escribir tests
-```
-
-### Fase 4: Documentar el plan
-
-**Guardar en `docs/plan.md`:**
-
+**Marcar explicitamente:**
 ```markdown
-# Plan: [Nombre del proyecto/feature]
-
-## Objetivo
-[Que se quiere lograr]
-
-## Tareas
-
-### Fase 1: Fundamentos
-| Tarea | Descripcion | Dependencias | Paralela? |
-|-------|-------------|--------------|-----------|
-| A | Crear modelo | Ninguna | Si |
-| E | Config lint | Ninguna | Si |
-
-### Fase 2: Backend
-| Tarea | Descripcion | Dependencias | Paralela? |
-|-------|-------------|--------------|-----------|
-| B | API endpoints | A | Si |
-| F | Setup tests | A | Si |
-
-### Fase 3: Frontend
-| Tarea | Descripcion | Dependencias | Paralela? |
-|-------|-------------|--------------|-----------|
-| C | Componente UI | B | No |
-| D | Tests E2E | B, C | No |
-
-## Notas
-[Consideraciones especiales, riesgos, decisiones]
+## Fase N: [Nombre] (PARALELO/SECUENCIAL)
 ```
 
-## Ejemplo de interaccion
+### Fase 4: Guardar el plan
+
+**Nombre del archivo:** `docs/plans/YYYY-MM-DD-<nombre-feature>.md`
+
+Ejemplo: `docs/plans/2025-01-15-sistema-autenticacion.md`
+
+## Oferta de Ejecucion
+
+**Despues de guardar el plan, ofrecer:**
 
 ```
-Usuario: /planificar
+Plan guardado en `docs/plans/YYYY-MM-DD-nombre.md`.
 
-Quiero agregar autenticacion a mi app
+Quieres que ejecute el plan?
 
-CC-Partner: Voy a analizar tu proyecto para crear un plan...
-[Revisa estructura, tecnologias existentes]
-
-Veo que usas Next.js con Prisma. Para autenticacion completa,
-identifico estas subtareas:
-
-## Plan: Sistema de Autenticacion
-
-### Fase 1: Base de datos (paralelas)
-| Tarea | Descripcion |
-|-------|-------------|
-| 1.1 | Crear modelo User en Prisma |
-| 1.2 | Crear modelo Session |
-| 1.3 | Configurar variables de entorno |
-
-### Fase 2: Backend (secuenciales)
-| Tarea | Descripcion | Depende de |
-|-------|-------------|------------|
-| 2.1 | API: registro de usuario | 1.1 |
-| 2.2 | API: login | 1.1, 1.2 |
-| 2.3 | API: logout | 1.2 |
-| 2.4 | Middleware de autenticacion | 2.2 |
-
-### Fase 3: Frontend (secuenciales)
-| Tarea | Descripcion | Depende de |
-|-------|-------------|------------|
-| 3.1 | Formulario de registro | 2.1 |
-| 3.2 | Formulario de login | 2.2 |
-| 3.3 | Boton de logout | 2.3 |
-| 3.4 | Proteger rutas privadas | 2.4 |
-
-### Fase 4: Testing
-| Tarea | Descripcion |
-|-------|-------------|
-| 4.1 | Tests de API |
-| 4.2 | Tests de componentes |
-
-Te parece bien este plan? Puedo ajustar si necesitas
-agregar o quitar algo.
-
-Usuario: Si, perfecto
-
-CC-Partner: Plan guardado en docs/plan.md
-
-Quieres que empecemos a ejecutar? Puedo:
-1. Ejecutar tarea por tarea (tu revisas cada una)
-2. Usar /ejecutar para las tareas paralelas con subagentes
-3. Empezar con la Fase 1 manualmente
+1. **Ejecutar ahora** - Uso `/ejecutar` para implementar tarea por tarea con subagentes
+2. **Revisar primero** - Tu revisas el plan y me dices cuando empezar
 
 Que prefieres?
 ```
 
-## Integracion con otros skills
+**Si elige ejecutar:**
+- Usar tool Skill para invocar `/ejecutar`
 
-| Despues de planificar... | Usa |
-|--------------------------|-----|
-| Ejecutar tareas paralelas | `/ejecutar` |
-| Disenar una tarea compleja | `/brainstorm` |
-| Empezar proyecto nuevo | `/empezar` |
+## Ejemplo Completo
 
-## Tips para buenos planes
+```markdown
+# Sistema de Autenticacion - Plan de Implementacion
+
+> **Para Claude:** Usa `/ejecutar` para implementar este plan tarea por tarea.
+
+**Objetivo:** Implementar registro, login, logout con JWT
+
+**Arquitectura:** API REST con Express, autenticacion JWT, passwords con bcrypt
+
+**Stack:** Node.js, Express, Prisma, PostgreSQL, bcrypt, jsonwebtoken
+
+---
+
+## Fase 1: Base de Datos (PARALELO)
+
+Las siguientes tareas son independientes:
+
+### Tarea 1.1: Modelo User
+
+**Archivos:**
+- Modificar: `prisma/schema.prisma`
+
+**Paso 1: Agregar modelo User**
+
+\`\`\`prisma
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+}
+\`\`\`
+
+**Paso 2: Ejecutar migracion**
+
+Ejecutar: `npx prisma migrate dev --name add-user`
+Esperado: Migration applied
+
+**Paso 3: Commit**
+
+\`\`\`bash
+git add prisma/
+git commit -m "feat: add User model"
+\`\`\`
+
+### Tarea 1.2: Configurar variables de entorno
+
+**Archivos:**
+- Crear: `.env.example`
+- Modificar: `.gitignore`
+
+**Paso 1: Crear .env.example**
+
+\`\`\`
+DATABASE_URL="postgresql://..."
+JWT_SECRET="your-secret-here"
+\`\`\`
+
+**Paso 2: Verificar .gitignore tiene .env**
+
+**Paso 3: Commit**
+
+---
+
+## Fase 2: API Endpoints (SECUENCIAL - depende de Fase 1)
+
+### Tarea 2.1: Endpoint de registro
+
+**Archivos:**
+- Crear: `src/routes/auth.ts`
+- Test: `tests/routes/auth.test.ts`
+
+**Paso 1: Escribir test que falla**
+
+\`\`\`typescript
+describe('POST /auth/register', () => {
+  it('should create a new user', async () => {
+    const res = await request(app)
+      .post('/auth/register')
+      .send({ email: 'test@test.com', password: 'password123' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('id');
+  });
+});
+\`\`\`
+
+**Paso 2: Ejecutar test**
+
+Ejecutar: `npm test -- auth.test.ts`
+Esperado: FAIL
+
+**Paso 3: Implementar endpoint**
+
+\`\`\`typescript
+import { Router } from 'express';
+import bcrypt from 'bcrypt';
+import { prisma } from '../db';
+
+const router = Router();
+
+router.post('/register', async (req, res) => {
+  const { email, password } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const user = await prisma.user.create({
+    data: { email, password: hashedPassword }
+  });
+
+  res.status(201).json({ id: user.id, email: user.email });
+});
+
+export default router;
+\`\`\`
+
+**Paso 4: Ejecutar test**
+
+Ejecutar: `npm test -- auth.test.ts`
+Esperado: PASS
+
+**Paso 5: Commit**
+
+\`\`\`bash
+git add src/routes/auth.ts tests/routes/auth.test.ts
+git commit -m "feat: add register endpoint"
+\`\`\`
+
+[...continua con mas tareas...]
+```
+
+## Tips para Buenos Planes
 
 **Tareas demasiado grandes:**
 - Si una tarea toma mas de 1 hora, dividirla mas
@@ -217,4 +345,12 @@ Que prefieres?
 
 **Cambios de plan:**
 - Es normal ajustar el plan mientras se ejecuta
-- Actualizar `docs/plan.md` con cambios
+- Actualizar el archivo del plan con cambios
+
+## Recuerda
+
+- Rutas de archivos exactas siempre
+- Codigo completo en el plan (no "agregar validacion")
+- Comandos exactos con output esperado
+- DRY, YAGNI, TDD, commits frecuentes
+- Marcar PARALELO vs SECUENCIAL explicitamente

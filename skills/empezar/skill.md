@@ -9,6 +9,8 @@ description: Use when starting a new project from scratch - guides through proje
 
 Guia paso a paso para iniciar un proyecto desde cero. Hace preguntas una a la vez para entender que quieres construir, recomienda tecnologias apropiadas, y genera la estructura inicial del proyecto.
 
+**Principio clave:** Antes de escribir codigo, hay que planificar. Esta skill crea el proyecto y SIEMPRE termina invocando `/planificar`.
+
 ## El Proceso
 
 ```dot
@@ -24,8 +26,8 @@ digraph empezar_flow {
     "Confirmar seleccion" [shape=box];
     "Generar estructura" [shape=box];
     "Crear archivos base" [shape=box];
-    "Generar plan de implementacion" [shape=box];
-    "Proyecto listo" [shape=ellipse];
+    "OBLIGATORIO: Invocar /planificar" [shape=box style=filled fillcolor=yellow];
+    "Proyecto listo para planificar" [shape=ellipse];
 
     "Usuario invoca /empezar" -> "Preguntar: Que quieres construir?";
     "Preguntar: Que quieres construir?" -> "Preguntar: Tipo de proyecto";
@@ -36,8 +38,8 @@ digraph empezar_flow {
     "Usuario tiene preferencias" -> "Confirmar seleccion";
     "Confirmar seleccion" -> "Generar estructura";
     "Generar estructura" -> "Crear archivos base";
-    "Crear archivos base" -> "Generar plan de implementacion";
-    "Generar plan de implementacion" -> "Proyecto listo";
+    "Crear archivos base" -> "OBLIGATORIO: Invocar /planificar";
+    "OBLIGATORIO: Invocar /planificar" -> "Proyecto listo para planificar";
 }
 ```
 
@@ -87,7 +89,7 @@ Una vez confirmado el stack:
    proyecto/
    ├── src/
    ├── docs/
-   │   └── plan.md
+   │   └── plans/      # Aqui van los planes de implementacion
    ├── README.md
    └── [archivos de config segun stack]
    ```
@@ -97,16 +99,40 @@ Una vez confirmado el stack:
    - Configuracion basica (tsconfig, .env.example, etc.)
    - README.md con descripcion del proyecto
 
-3. **Crear plan de implementacion**
-   - Escribir en `docs/plan.md`
-   - Dividir en fases claras
-   - Empezar por lo mas simple (MVP)
+3. **Crear carpeta docs/plans/**
+   - Esta carpeta es donde `/planificar` guardara los planes
+   - Crear .gitkeep para asegurar que exista
 
-## Fase 4: Siguientes pasos
+## Fase 4: OBLIGATORIO - Invocar /planificar
 
-Al terminar, ofrecer:
-- "Proyecto creado! Quieres que empecemos a implementar el plan?"
-- Si dice si, sugerir usar `/ejecutar` o empezar con la primera tarea
+**NUNCA terminar /empezar sin invocar /planificar**
+
+Al terminar la estructura:
+
+```
+Proyecto creado! He creado:
+- Estructura de carpetas
+- Archivos de configuracion
+- Carpeta docs/plans/ para los planes de implementacion
+
+Ahora voy a usar /planificar para crear el plan de implementacion...
+```
+
+**Luego DEBES usar el tool Skill para invocar `/planificar`:**
+
+```
+Skill tool:
+  skill: "cc-partner:planificar"
+```
+
+## Red Flags - NUNCA hacer esto
+
+| No hagas | Por que |
+|----------|---------|
+| Terminar sin invocar /planificar | Siempre se necesita un plan antes de implementar |
+| Empezar a escribir codigo | /empezar solo crea estructura, /planificar + /ejecutar implementan |
+| Ofrecer "empezar a implementar" | El usuario debe revisar el plan primero |
+| Saltarte la creacion de docs/plans/ | Es donde van los planes |
 
 ## Principios clave
 
@@ -115,6 +141,7 @@ Al terminar, ofrecer:
 - **Explicar el por que** - Cuando recomiendas algo, explica brevemente por que
 - **YAGNI** - No agregar complejidad innecesaria, empezar simple
 - **Validar cada paso** - Confirmar antes de avanzar
+- **SIEMPRE planificar** - Esta skill DEBE terminar invocando /planificar
 
 ## Ejemplo de interaccion
 
@@ -149,14 +176,17 @@ Te parece bien?
 Usuario: Si
 
 CC-Partner: Perfecto! Creando la estructura del proyecto...
-[Genera carpetas, archivos, y plan]
 
-Listo! He creado:
-- Estructura de carpetas
+[Genera carpetas, archivos, y estructura]
+
+Proyecto creado! He creado:
+- Estructura de carpetas (src/, docs/plans/)
 - Archivos de configuracion
-- Plan de implementacion en docs/plan.md
+- README.md
 
-Quieres que empecemos con la primera tarea del plan?
+Ahora voy a crear el plan de implementacion...
+
+[INVOCA /planificar automaticamente]
 ```
 
 ## Notas para diferentes audiencias

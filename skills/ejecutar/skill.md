@@ -7,80 +7,89 @@ description: Use when you have a plan with multiple tasks to execute - dispatche
 
 ## Overview
 
-Ejecuta un plan de tareas usando subagentes. Cada tarea se asigna a un subagente fresco que implementa, prueba, y reporta. Despues de cada tarea, se revisa antes de continuar.
+Ejecuta un plan despachando un subagente fresco por tarea, con revision de dos etapas despues de cada una: primero conformidad con spec, luego calidad de codigo.
 
-**Principio clave:** Un subagente por tarea + revision despues de cada una = calidad alta, progreso visible.
+**Principio clave:** Subagente fresco por tarea + revision de dos etapas (spec + calidad) = alta calidad, iteracion rapida
 
 ## Cuando usar
 
 ```dot
 digraph when_to_use {
     "Tienes un plan de tareas?" [shape=diamond];
-    "Las tareas son independientes?" [shape=diamond];
-    "Usar /ejecutar" [shape=box];
-    "Ejecutar manualmente" [shape=box];
+    "Las tareas son mayormente independientes?" [shape=diamond];
+    "Usar /ejecutar" [shape=box style=filled fillcolor=lightgreen];
+    "Ejecutar manualmente o brainstorm primero" [shape=box];
     "Primero usar /planificar" [shape=box];
 
-    "Tienes un plan de tareas?" -> "Las tareas son independientes?" [label="Si"];
+    "Tienes un plan de tareas?" -> "Las tareas son mayormente independientes?" [label="Si"];
     "Tienes un plan de tareas?" -> "Primero usar /planificar" [label="No"];
-    "Las tareas son independientes?" -> "Usar /ejecutar" [label="Si"];
-    "Las tareas son independientes?" -> "Ejecutar manualmente" [label="No - muy acopladas"];
+    "Las tareas son mayormente independientes?" -> "Usar /ejecutar" [label="Si"];
+    "Las tareas son mayormente independientes?" -> "Ejecutar manualmente o brainstorm primero" [label="No - muy acopladas"];
 }
 ```
 
 **Usar cuando:**
-- Tienes un plan con 3+ tareas definidas
+- Tienes un plan en `docs/plans/` con tareas definidas
 - Las tareas pueden trabajarse de forma independiente
 - Quieres progreso rapido con checkpoints de revision
 
 **No usar cuando:**
 - Tareas muy acopladas (una depende del resultado exacto de otra)
 - Necesitas control manual de cada paso
-- Es una sola tarea simple
+- No tienes un plan escrito
 
 ## El Proceso
 
 ```dot
-digraph ejecutar_flow {
+digraph process {
     rankdir=TB;
 
-    "Leer plan de tareas" [shape=box];
-    "Crear lista de todos (TodoWrite)" [shape=box];
-    "Tomar siguiente tarea" [shape=box];
-    "Despachar subagente implementador" [shape=box];
-    "Subagente tiene preguntas?" [shape=diamond];
-    "Responder preguntas" [shape=box];
-    "Subagente implementa y prueba" [shape=box];
-    "Revisar resultado" [shape=diamond];
-    "Subagente corrige" [shape=box];
-    "Marcar tarea completada" [shape=box];
+    subgraph cluster_per_task {
+        label="Por cada Tarea";
+        "Despachar subagente implementador" [shape=box];
+        "Subagente tiene preguntas?" [shape=diamond];
+        "Responder preguntas" [shape=box];
+        "Subagente implementa, prueba, hace commit, auto-revisa" [shape=box];
+        "Despachar revisor de spec" [shape=box];
+        "Spec OK?" [shape=diamond];
+        "Implementador corrige gaps" [shape=box];
+        "Despachar revisor de calidad" [shape=box];
+        "Calidad OK?" [shape=diamond];
+        "Implementador corrige calidad" [shape=box];
+        "Marcar tarea completada en TodoWrite" [shape=box];
+    }
+
+    "Leer plan, extraer tareas, crear TodoWrite" [shape=box];
     "Mas tareas?" [shape=diamond];
-    "Revision final" [shape=box];
+    "Revision final de toda la implementacion" [shape=box];
     "Plan completado" [shape=ellipse];
 
-    "Leer plan de tareas" -> "Crear lista de todos (TodoWrite)";
-    "Crear lista de todos (TodoWrite)" -> "Tomar siguiente tarea";
-    "Tomar siguiente tarea" -> "Despachar subagente implementador";
+    "Leer plan, extraer tareas, crear TodoWrite" -> "Despachar subagente implementador";
     "Despachar subagente implementador" -> "Subagente tiene preguntas?";
     "Subagente tiene preguntas?" -> "Responder preguntas" [label="Si"];
     "Responder preguntas" -> "Despachar subagente implementador";
-    "Subagente tiene preguntas?" -> "Subagente implementa y prueba" [label="No"];
-    "Subagente implementa y prueba" -> "Revisar resultado";
-    "Revisar resultado" -> "Subagente corrige" [label="Problemas"];
-    "Subagente corrige" -> "Revisar resultado";
-    "Revisar resultado" -> "Marcar tarea completada" [label="OK"];
-    "Marcar tarea completada" -> "Mas tareas?";
-    "Mas tareas?" -> "Tomar siguiente tarea" [label="Si"];
-    "Mas tareas?" -> "Revision final" [label="No"];
-    "Revision final" -> "Plan completado";
+    "Subagente tiene preguntas?" -> "Subagente implementa, prueba, hace commit, auto-revisa" [label="No"];
+    "Subagente implementa, prueba, hace commit, auto-revisa" -> "Despachar revisor de spec";
+    "Despachar revisor de spec" -> "Spec OK?";
+    "Spec OK?" -> "Implementador corrige gaps" [label="No"];
+    "Implementador corrige gaps" -> "Despachar revisor de spec" [label="re-revisar"];
+    "Spec OK?" -> "Despachar revisor de calidad" [label="Si"];
+    "Despachar revisor de calidad" -> "Calidad OK?";
+    "Calidad OK?" -> "Implementador corrige calidad" [label="No"];
+    "Implementador corrige calidad" -> "Despachar revisor de calidad" [label="re-revisar"];
+    "Calidad OK?" -> "Marcar tarea completada en TodoWrite" [label="Si"];
+    "Marcar tarea completada en TodoWrite" -> "Mas tareas?";
+    "Mas tareas?" -> "Despachar subagente implementador" [label="Si"];
+    "Mas tareas?" -> "Revision final de toda la implementacion" [label="No"];
+    "Revision final de toda la implementacion" -> "Plan completado";
 }
 ```
 
 ## Fase 1: Preparar la ejecucion
 
 **Leer el plan:**
-- Abrir `docs/plan.md` o el archivo de plan
-- Extraer todas las tareas con su descripcion completa
+- Abrir el archivo de plan (ej: `docs/plans/2025-01-15-feature.md`)
+- Extraer TODAS las tareas con su texto completo
 - Notar el contexto general del proyecto
 
 **Crear TodoWrite:**
@@ -90,156 +99,175 @@ digraph ejecutar_flow {
 
 ## Fase 2: Ejecutar tarea por tarea
 
-**Para cada tarea:**
+### Para cada tarea:
 
-### 1. Despachar subagente implementador
+#### 1. Despachar subagente implementador
 
-Usar el tool `Task` con un prompt claro:
+Usar el tool `Task` con el prompt de `./implementer-prompt.md`:
 
-```markdown
-## Tarea: [Nombre de la tarea]
-
-### Contexto
-[Descripcion del proyecto y donde encaja esta tarea]
-
-### Objetivo
-[Que debe lograr esta tarea especificamente]
-
-### Archivos relevantes
-[Lista de archivos que puede necesitar leer o modificar]
-
-### Requisitos
-- Implementar [funcionalidad]
-- Agregar tests
-- Verificar que tests pasan
-- Hacer commit con mensaje descriptivo
-
-### Al terminar
-Reportar:
-1. Que implementaste
-2. Que tests agregaste
-3. Si encontraste problemas
+```
+Task tool (general-purpose):
+  description: "Implementar Tarea N: [nombre]"
+  prompt: [contenido de implementer-prompt.md con texto completo de tarea]
 ```
 
-### 2. Responder preguntas
+**IMPORTANTE:**
+- Pegar texto COMPLETO de la tarea, no hacer que el subagente lea el archivo
+- Incluir contexto de donde encaja esta tarea en el plan
 
-Si el subagente pregunta algo:
+#### 2. Responder preguntas
+
+Si el subagente pregunta:
 - Responder de forma clara y completa
 - Proporcionar contexto adicional si es necesario
 - No apresurarlo a implementar
 
-### 3. Revisar resultado
+#### 3. Revision de conformidad con spec
 
-Cuando el subagente termina, revisar:
-- El codigo implementa lo pedido?
-- Los tests pasan?
-- El codigo es razonable?
+Cuando el implementador termina, despachar revisor de spec con `./spec-reviewer-prompt.md`:
 
-**Si hay problemas:**
-- Indicar que debe corregir
-- El subagente corrige
-- Revisar de nuevo
+```
+Task tool (general-purpose):
+  description: "Revisar conformidad de Tarea N"
+  prompt: [contenido de spec-reviewer-prompt.md]
+```
 
-### 4. Marcar completada
+**Si encuentra problemas:**
+- El implementador (mismo subagente) corrige
+- El revisor revisa de nuevo
+- Repetir hasta aprobado
 
-Una vez aprobada:
+#### 4. Revision de calidad de codigo
+
+Solo despues de que spec pase, despachar revisor de calidad con `./code-quality-reviewer-prompt.md`:
+
+```
+Task tool (superpowers:code-reviewer):
+  [parametros del prompt]
+```
+
+**Si encuentra problemas:**
+- El implementador corrige
+- El revisor revisa de nuevo
+- Repetir hasta aprobado
+
+#### 5. Marcar completada
+
+Una vez aprobada por ambos revisores:
 - Actualizar TodoWrite a `completed`
 - Continuar con siguiente tarea
 
-## Fase 3: Revision final
+## Fase 3: Tareas paralelas
+
+Si el plan marca tareas como PARALELO:
+
+```
+## Fase 1 (PARALELO)
+
+[Despachar multiples subagentes implementadores al mismo tiempo]
+[Esperar que todos terminen]
+[Revisar cada uno (spec + calidad)]
+[Marcar completadas]
+
+## Fase 2 (depende de Fase 1)
+
+[Continuar con siguiente fase]
+```
+
+**Importante:** Solo paralelizar tareas que:
+- No tocan los mismos archivos
+- No tienen dependencias de datos
+- Estan marcadas como PARALELO en el plan
+
+## Fase 4: Revision final
 
 Despues de todas las tareas:
-- Ejecutar todos los tests
-- Revisar que todo funciona junto
+- Ejecutar todos los tests: `npm test` o equivalente
+- Verificar que todo funciona junto
 - Hacer commit final si es necesario
+
+## Prompts de Subagentes
+
+Los prompts detallados estan en archivos separados:
+
+- `./implementer-prompt.md` - Para subagente implementador
+- `./spec-reviewer-prompt.md` - Para revisor de conformidad
+- `./code-quality-reviewer-prompt.md` - Para revisor de calidad
 
 ## Ejemplo de ejecucion
 
 ```
-Usuario: /ejecutar
+Tu: Estoy usando /ejecutar para implementar el plan.
 
-CC-Partner: Voy a ejecutar el plan en docs/plan.md...
+[Leer plan: docs/plans/2025-01-15-auth.md]
+[Extraer 4 tareas con texto completo]
+[Crear TodoWrite]
 
-[Lee el plan: 4 tareas para sistema de autenticacion]
-
-Creando lista de tareas:
-- [ ] 1. Crear modelo User en Prisma
+Tareas:
+- [ ] 1. Modelo User en Prisma
 - [ ] 2. API de registro
 - [ ] 3. API de login
 - [ ] 4. Middleware de auth
 
-## Ejecutando Tarea 1: Crear modelo User
+## Ejecutando Tarea 1: Modelo User
 
-[Despacha subagente]
+[Despachar subagente implementador con texto completo]
 
-Subagente: Antes de empezar, que campos necesita el User
-ademas de email y password?
+Implementador: "Antes de empezar - el modelo necesita campo 'name' ademas de email?"
 
-CC-Partner: Solo email, password (hasheado), y createdAt.
+Tu: "Solo email y password por ahora."
 
-Subagente: Entendido. Implementando...
+Implementador: "Entendido. Implementando..."
 
 [Tiempo despues]
 
-Subagente: Completado:
+Implementador:
 - Agregue modelo User en schema.prisma
 - Corri migracion
-- Agregue test de creacion de usuario
+- Agregue test de creacion
 - Tests pasan (1/1)
+- Auto-revision: Todo bien
 - Commit: "feat: add User model"
 
-CC-Partner: [Revisa] Se ve bien. Tarea 1 completada.
+[Despachar revisor de spec]
+
+Revisor Spec: ✅ Conforme - todos los requisitos cumplidos
+
+[Obtener SHAs de git, despachar revisor de calidad]
+
+Revisor Calidad:
+- Fortalezas: Modelo limpio, migracion correcta
+- Problemas: Ninguno
+- Aprobado
+
+[Marcar Tarea 1 completada]
 
 Tareas:
-- [x] 1. Crear modelo User en Prisma
+- [x] 1. Modelo User en Prisma
 - [ ] 2. API de registro
 - [ ] 3. API de login
 - [ ] 4. Middleware de auth
 
 ## Ejecutando Tarea 2: API de registro
 
-[Despacha siguiente subagente...]
+[Continua...]
 ```
 
-## Tareas en paralelo
-
-Si hay tareas que pueden ejecutarse en paralelo (sin dependencias):
-
-```
-Grupo 1 (paralelo):
-  - Tarea A: Crear modelo User
-  - Tarea B: Configurar mailer
-
-[Despachar ambos subagentes al mismo tiempo]
-[Esperar que ambos terminen]
-[Revisar ambos]
-[Marcar completadas]
-
-Grupo 2 (depende de Grupo 1):
-  - Tarea C: API de registro (usa User y mailer)
-```
-
-**Importante:** Solo paralelizar tareas que no tocan los mismos archivos.
-
-## Red Flags - Evitar
+## Red Flags - NUNCA hacer esto
 
 | No hagas | Por que |
 |----------|---------|
-| Saltarte la revision | Errores se acumulan |
+| Saltarte revision de spec | Errores de spec se acumulan |
+| Saltarte revision de calidad | Codigo malo en produccion |
+| Empezar calidad antes de que spec pase | Orden incorrecto |
 | Paralelizar tareas que editan mismo archivo | Conflictos |
 | Ignorar preguntas del subagente | Implementacion incorrecta |
 | Avanzar con tests fallando | Deuda tecnica |
 | Hacer commits sin revisar | Codigo malo en historial |
+| Hacer que subagente lea archivo de plan | Darle texto completo directamente |
+| Continuar si revisor encontro problemas | Arreglar primero, re-revisar |
 
-## Integracion con otros skills
-
-| Situacion | Skill a usar |
-|-----------|--------------|
-| No tienes plan todavia | `/planificar` primero |
-| Tarea muy compleja | `/brainstorm` para disenarla |
-| Empezando proyecto nuevo | `/empezar` primero |
-
-## Ventajas de subagentes
+## Ventajas de Subagentes
 
 **Contexto fresco:**
 - Cada subagente empieza limpio
@@ -247,12 +275,20 @@ Grupo 2 (depende de Grupo 1):
 
 **Paralelizable:**
 - Multiples subagentes pueden trabajar a la vez
-- En tareas independientes
+- En tareas marcadas como PARALELO
 
 **Facil de revisar:**
 - Cada tarea tiene un resultado claro
-- Facil identificar donde hay problemas
+- Revision de dos etapas asegura calidad
 
 **Progreso visible:**
 - TodoWrite muestra avance
 - Sabes exactamente donde estas
+
+## Integracion con otras skills
+
+| Situacion | Skill a usar |
+|-----------|--------------|
+| No tienes plan todavia | `/planificar` primero |
+| Tarea muy compleja para entender | `/brainstorm` primero |
+| Empezando proyecto nuevo | `/empezar` primero |
